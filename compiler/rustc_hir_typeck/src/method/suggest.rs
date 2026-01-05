@@ -43,7 +43,6 @@ use rustc_trait_selection::traits::{
     FulfillmentError, Obligation, ObligationCauseCode, supertraits,
 };
 use tracing::{debug, info, instrument};
-
 use super::probe::{AutorefOrPtrAdjustment, IsSuggestion, Mode, ProbeScope};
 use super::{CandidateSource, MethodError, NoMatchData};
 use crate::errors::{self, CandidateTraitNote, NoAssociatedItem};
@@ -3311,7 +3310,24 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     | sym::Debug => true,
                     _ => false,
                 };
-                if can_derive {
+
+                let trait_def_id = trait_pred.def_id();
+                let adt_def_id = adt.did();
+
+                let has_impl = self.tcx.trait_impls_of(trait_def_id)
+                    .non_blanket_impls()
+                    .values()
+                    .flatten()
+                    .any(|impl_def_id| {
+                        let impl_self_ty = self.tcx.type_of(impl_def_id).instantiate_identity();
+
+                        match impl_self_ty.kind() {
+                            ty::Adt(def, _) => def.did() == adt_def_id,
+                            _ => false,
+                        }
+                    });
+
+                if can_derive && !has_impl {
                     let self_name = trait_pred.self_ty().to_string();
                     let self_span = self.tcx.def_span(adt.did());
                     for super_trait in
