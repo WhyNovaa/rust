@@ -43,6 +43,7 @@ use rustc_trait_selection::traits::{
     FulfillmentError, Obligation, ObligationCauseCode, supertraits,
 };
 use tracing::{debug, info, instrument};
+
 use super::probe::{AutorefOrPtrAdjustment, IsSuggestion, Mode, ProbeScope};
 use super::{CandidateSource, MethodError, NoMatchData};
 use crate::errors::{self, CandidateTraitNote, NoAssociatedItem};
@@ -3314,7 +3315,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 let trait_def_id = trait_pred.def_id();
                 let adt_def_id = adt.did();
 
-                let has_impl = self.tcx.trait_impls_of(trait_def_id)
+                let has_impl = self
+                    .tcx
+                    .trait_impls_of(trait_def_id)
                     .non_blanket_impls()
                     .values()
                     .flatten()
