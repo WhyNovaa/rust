@@ -3316,7 +3316,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     self.tcx
                         .non_blanket_impls_for_ty(trait_pred.def_id(), trait_pred.self_ty())
                         .any(|impl_def_id| {
-                            self.tcx.type_of(impl_def_id)
+                            self.tcx
+                                .type_of(impl_def_id)
                                 .instantiate_identity()
                                 .ty_adt_def()
                                 .is_some_and(|def| def.did() == adt.did())
