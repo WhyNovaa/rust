@@ -3283,7 +3283,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     /// Checks if we can suggest a derive macro for the unmet trait bound.
     /// Returns Some(list_of_derives) if possible, or None if not.
-    fn check_derive(
+    fn consider_suggesting_derives_for_ty(
         &self,
         trait_pred: ty::TraitPredicate<'tcx>,
         adt: ty::AdtDef<'tcx>,
@@ -3291,8 +3291,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let diagnostic_name = self.tcx.get_diagnostic_name(trait_pred.def_id())?;
 
         let can_derive = match diagnostic_name {
-            sym::Default => !adt.is_enum(),
-            sym::Eq
+            sym::Default
+            | sym::Eq
             | sym::PartialEq
             | sym::Ord
             | sym::PartialOrd
@@ -3309,16 +3309,16 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         let trait_def_id = trait_pred.def_id();
         let self_ty = trait_pred.self_ty();
-        let has_impl =
-            self.tcx.non_blanket_impls_for_ty(trait_def_id, self_ty).any(|impl_def_id| {
-                self.tcx
-                    .type_of(impl_def_id)
-                    .instantiate_identity()
-                    .ty_adt_def()
-                    .is_some_and(|def| def.did() == adt.did())
-            });
 
-        if has_impl {
+        // We need to check if there is already a manual implementation of the trait
+        // for this specific ADT to avoid suggesting `#[derive(..)]` that would conflict.
+        if self.tcx.non_blanket_impls_for_ty(trait_def_id, self_ty).any(|impl_def_id| {
+            self.tcx
+                .type_of(impl_def_id)
+                .instantiate_identity()
+                .ty_adt_def()
+                .is_some_and(|def| def.did() == adt.did())
+        }) {
             return None;
         }
 
@@ -3355,7 +3355,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 Some(adt) if adt.did().is_local() => adt,
                 _ => continue,
             };
-            if let Some(new_derives) = self.check_derive(trait_pred, adt) {
+            if let Some(new_derives) = self.consider_suggesting_derives_for_ty(trait_pred, adt) {
                 derives.extend(new_derives);
             } else {
                 traits.push(trait_pred.def_id());
